@@ -2,31 +2,62 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shooting Range</title>
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        background: #111;
-      }
-      canvas {
-        display: block;
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-      #webgl {
-        z-index: 2;
-      }
-      #bg-canvas {
-        z-index: 1;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+
     <canvas id="bg-canvas"></canvas>
     <canvas id="webgl"></canvas>
+
+    <div id="menu-overlay">
+      <div class="menu-card">
+        <h1>Aim Trainer</h1>
+        
+        <div id="main-menu">
+          <button id="btn-play" class="btn btn-primary">Play</button>
+          
+          <div id="play-modes">
+            <button class="btn mode-btn" onclick="selectMode('spidershot')">Spidershot</button>
+            <button class="btn mode-btn" onclick="selectMode('motionshot')">Motionshot</button>
+          </div>
+
+          <button id="btn-practice" class="btn btn-secondary">Practice</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="ball.js"></script>
     <script type="module" src="background.js"></script>
+    
+    <script>
+      const btnPlay = document.getElementById('btn-play');
+      const playModes = document.getElementById('play-modes');
+      const menuCard = document.querySelector('.menu-card');
+
+      btnPlay.addEventListener('click', () => {
+        const isVisible = playModes.classList.contains('visible');
+        if (isVisible) {
+          playModes.classList.remove('visible');
+          playModes.style.maxHeight = '0';
+        } else {
+          playModes.classList.add('visible');
+          playModes.style.maxHeight = '200px'; 
+        }
+      });
+
+      window.selectMode = (mode) => {
+        console.log(`Mode selected: ${mode}`);
+        const overlay = document.getElementById('menu-overlay');
+        overlay.style.opacity = '0';
+        overlay.style.pointerEvents = 'none';
+
+      };
+      
+      document.getElementById('btn-practice').addEventListener('click', () => {
+         console.log('Practice mode selected');
+      });
+    </script>
   </body>
 </html>
