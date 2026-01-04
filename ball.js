@@ -1,13 +1,15 @@
 import * as THREE from "three";
+
 const canvas = document.getElementById("webgl");
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+// Enable alpha for transparency so the background canvas shows through
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 
 const scene = new THREE.Scene();
 
-const camera = new THREE.PerspectiveCamera(55,window.innerWidth / window.innerHeight,0.1,100);
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
 camera.position.z = 6;
 
 window.addEventListener("resize", () => {
@@ -26,7 +28,7 @@ const height = loader.load("./img/metal-roof-unity/metal-roof_height.png");
 albedo.colorSpace = THREE.SRGBColorSpace;
 
 const geometry = new THREE.SphereGeometry(0.4, 128, 128);
-geometry.setAttribute("uv2",new THREE.BufferAttribute(geometry.attributes.uv.array, 2));
+geometry.setAttribute("uv2", new THREE.BufferAttribute(geometry.attributes.uv.array, 2));
 
 const material = new THREE.MeshStandardMaterial({
   map: albedo,
