@@ -4,42 +4,77 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shooting Range</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
 
+    <div id="crosshair"></div>
+
     <canvas id="bg-canvas"></canvas>
     <canvas id="webgl"></canvas>
 
-    <!-- MENU -->
-    <div id="menu-overlay">
-      <div class="menu-card">
-        <h1>Aim Trainer</h1>
-
-        <div id="main-menu">
-          <button id="btn-play" class="btn btn-primary">Play</button>
-
-          <div id="play-modes">
-            <button class="btn mode-btn" onclick="selectMode('spidershot')">
-              Spidershot
-            </button>
-            <button class="btn mode-btn" onclick="selectMode('motionshot')">
-              Motionshot
-            </button>
-          </div>
-
-          <button id="btn-back" class="btn btn-secondary" style="display:none;">
-            Back
-          </button>
-
-          <button id="btn-practice" class="btn btn-secondary">
-            Practice
-          </button>
+    <div id="scoreboard">
+      <div class="hud-section score-section">
+        <span class="hud-label">PTS</span>
+        <span id="score">0</span>
+      </div>
+      <div class="hud-section timer-section">
+        <div class="diamond-shape"></div>
+        <div class="timer-content">
+          <span id="time">30</span>
         </div>
       </div>
     </div>
 
-    <!-- PAUSE MENU -->
+    <div id="result-overlay">
+      <div class="result-card">
+        <h2>SESSION COMPLETE</h2>
+        
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Time Played</span>
+            <span class="stat-value" id="res-time">30s</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Targets Spawned</span>
+            <span class="stat-value" id="res-spawn">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Targets Hit</span>
+            <span class="stat-value" id="res-hit">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Shots Missed</span>
+            <span class="stat-value" id="res-miss">0</span>
+          </div>
+          <div class="stat-item full-width">
+            <span class="stat-label">Final Score</span>
+            <span class="stat-value highlight" id="res-score">0</span>
+          </div>
+        </div>
+
+        <button id="btn-result-back" class="btn btn-primary">Back to Menu</button>
+      </div>
+    </div>
+
+    <div id="menu-overlay">
+      <div class="menu-card">
+        <h1>Aim Trainer</h1>
+        <div id="main-menu">
+          <button id="btn-play" class="btn btn-primary">Play</button>
+          
+          <div id="play-modes">
+            <button class="btn mode-btn" onclick="selectMode('spidershot')">Spidershot</button>
+            <button class="btn mode-btn" onclick="selectMode('motionshot')">Motionshot</button>
+          </div>
+
+          <button id="btn-back" class="btn btn-secondary" style="display:none;">Back</button>
+          <button id="btn-practice" class="btn btn-secondary">Practice</button>
+        </div>
+      </div>
+    </div>
+
     <div id="pause-overlay" style="display: none;">
       <div class="menu-card">
         <h1>PAUSED</h1>
@@ -49,63 +84,55 @@
       </div>
     </div>
 
-
-    <!-- CROSSHAIR -->
-    <div id="crosshair"></div>
-
-    <!-- COUNTDOWN -->
     <div id="countdown">3</div>
 
     <script type="module" src="ball.js"></script>
-    <script type="module" src="spidershot.js"></script>
-    <script type="module" src="motionshot.js"></script>
     <script type="module" src="background.js"></script>
 
-    <script type="module">
-      import { lockPointer, resetCamera, setBallVisibility } from './ball.js';
-
-      const btnPlay = document.getElementById('btn-play');
-      const btnPractice = document.getElementById('btn-practice');
-      const btnBack = document.getElementById('btn-back');
-      const playModes = document.getElementById('play-modes');
-      const countdownEl = document.getElementById('countdown');
-      const crosshair = document.getElementById('crosshair');
+    <script>
+      /* --- VARIABEL UI --- */
+      const btnPlay = document.getElementById("btn-play");
+      const btnPractice = document.getElementById("btn-practice");
+      const btnBack = document.getElementById("btn-back");
+      const playModes = document.getElementById("play-modes");
+      const countdownEl = document.getElementById("countdown");
+      const menuOverlay = document.getElementById("menu-overlay");
       
-      const menuOverlay = document.getElementById('menu-overlay');
-      const pauseOverlay = document.getElementById('pause-overlay');
-      const btnResume = document.getElementById('btn-resume');
-      const btnRestart = document.getElementById('btn-restart');
-      const btnExit = document.getElementById('btn-exit');
+      // Variable Pause Menu
+      const pauseOverlay = document.getElementById("pause-overlay");
+      const btnResume = document.getElementById("btn-resume");
+      const btnRestart = document.getElementById("btn-restart");
+      const btnExit = document.getElementById("btn-exit");
 
-      let currentMode = null;
       let isPaused = false;
-      let isGameActive = false; // True when actually PLAYING (not in menu)
+      let isGameActive = false; // Status apakah sedang dalam sesi permainan
+      let activeMode = null;    // Menyimpan mode terakhir untuk fitur Restart
 
-      // ===========================
-      // MAIN MENU LOGIC
-      // ===========================
-      btnPlay.addEventListener('click', () => {
-        playModes.classList.add('visible');
-        btnPlay.style.display = 'none';
-        btnPractice.style.display = 'none';
-        btnBack.style.display = 'block';
+      // --- 1. NAVIGASI MENU UTAMA ---
+      btnPlay.addEventListener("click", () => {
+        playModes.classList.add("visible");
+        btnPlay.style.display = "none";
+        btnPractice.style.display = "none";
+        btnBack.style.display = "block";
       });
 
-      btnBack.addEventListener('click', () => {
-        playModes.classList.remove('visible');
-        btnPlay.style.display = 'block';
-        btnPractice.style.display = 'block';
-        btnBack.style.display = 'none';
+      btnBack.addEventListener("click", () => {
+        playModes.classList.remove("visible");
+        btnPlay.style.display = "block";
+        btnPractice.style.display = "block";
+        btnBack.style.display = "none";
       });
 
+      // --- 2. COUNTDOWN SYSTEM ---
       function startCountdown(onFinish) {
         let timeLeft = 3;
         countdownEl.textContent = timeLeft;
-        countdownEl.style.display = 'block';
-        menuOverlay.style.display = 'none';
+        countdownEl.style.display = "block";
         
-        // Hide ball during countdown
-        setBallVisibility(false);
+        // Sembunyikan semua overlay
+        menuOverlay.style.opacity = "0";
+        menuOverlay.style.pointerEvents = "none";
+        pauseOverlay.style.display = "none";
 
         const interval = setInterval(() => {
           timeLeft--;
@@ -113,90 +140,74 @@
             countdownEl.textContent = timeLeft;
           } else {
             clearInterval(interval);
-            countdownEl.style.display = 'none';
-            onFinish();
+            countdownEl.style.display = "none";
+            onFinish(); // Panggil fungsi mulai game
           }
         }, 1000);
       }
 
+      // --- 3. PILIH MODE (Dipanggil dari tombol HTML) ---
       window.selectMode = (mode) => {
-        console.log(`Mode selected: ${mode}`);
-        currentMode = mode;
-        
-        // Hide Main Menu
-        menuOverlay.style.display = 'none';
-        
+        activeMode = mode; // Simpan mode yang dipilih
         startCountdown(() => {
-          startGame(mode);
+          // Memastikan fungsi dari ball.js sudah siap
+          if (window.startGame) {
+            isGameActive = true;
+            window.startGame(mode);
+          } else {
+            console.error("Fungsi startGame belum dimuat dari ball.js");
+          }
         });
       };
 
-      function startGame(mode) {
-        isGameActive = true;
-        isPaused = false;
-        crosshair.style.display = 'block';
-        
-        if (mode === 'spidershot') {
-          console.log('Spidershot START');
-          if (window.startSpidershot) window.startSpidershot();
-        } else if (mode === 'motionshot') {
-          console.log('Motionshot START');
-          if (window.startMotionshot) window.startMotionshot();
-        }
-      }
-
-      // ===========================
-      // PAUSE MENU LOGIC
-      // ===========================
+      // --- 4. LOGIKA PAUSE MENU ---
       
-      // Called by ball.js when pointer lock is lost (ESC pressed)
+      // Fungsi ini dipanggil otomatis oleh ball.js saat tombol ESC ditekan
       window.onGamePause = () => {
+        // Hanya munculkan pause jika game sedang aktif dan belum dipause
         if (isGameActive && !isPaused) {
            isPaused = true;
-           pauseOverlay.style.display = 'flex';
-           crosshair.style.display = 'none';
+           pauseOverlay.style.display = 'flex'; // Munculkan overlay pause
+           
+           // Beritahu ball.js untuk menghentikan waktu/gerakan
+           if(window.setGamePaused) window.setGamePaused(true);
         }
       };
 
+      // Tombol RESUME
       btnResume.addEventListener('click', () => {
         if (isGameActive && isPaused) {
-            isPaused = false;
-            pauseOverlay.style.display = 'none';
-            crosshair.style.display = 'block';
-            lockPointer();
+           isPaused = false;
+           pauseOverlay.style.display = 'none';
+           
+           // Kunci kembali kursor mouse (Lanjutkan game FPS)
+           const canvas = document.getElementById("webgl");
+           canvas.requestPointerLock();
+           
+           // Lanjutkan waktu/gerakan
+           if(window.setGamePaused) window.setGamePaused(false);
         }
       });
 
+      // Tombol RESTART
       btnRestart.addEventListener('click', () => {
-        pauseOverlay.style.display = 'none';
-        resetCamera(); 
-        
-        // Explicitly hide before countdown starts to be sure
-        setBallVisibility(false);
-        
-        startCountdown(() => {
-            startGame(currentMode);
-        });
+         isPaused = false;
+         pauseOverlay.style.display = 'none';
+         
+         // Mulai ulang dengan mode yang sama
+         if (activeMode) {
+           startCountdown(() => {
+             if (window.startGame) window.startGame(activeMode);
+           });
+         }
       });
 
+      // Tombol EXIT
       btnExit.addEventListener('click', () => {
-        isGameActive = false;
-        isPaused = false;
-        currentMode = null;
-        
-        pauseOverlay.style.display = 'none';
-        crosshair.style.display = 'none';
-        
-        // Show Main Menu
-        menuOverlay.style.display = 'flex';
-        resetCamera();
-        
-        window.location.reload(); 
+         // Cara paling bersih untuk reset semua state module JS adalah reload halaman
+         window.location.reload(); 
       });
 
-      btnPractice.addEventListener('click', () => {
-        console.log('Practice mode selected');
-      });
     </script>
   </body>
 </html>
