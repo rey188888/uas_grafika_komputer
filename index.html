@@ -39,6 +39,20 @@
       </div>
     </div>
 
+    <!-- PAUSE MENU -->
+    <div id="pause-overlay" style="display: none;">
+      <div class="menu-card">
+        <h1>PAUSED</h1>
+        <button id="btn-resume" class="btn btn-primary">Resume</button>
+        <button id="btn-restart" class="btn btn-secondary">Restart</button>
+        <button id="btn-exit" class="btn btn-secondary">Exit to Menu</button>
+      </div>
+    </div>
+
+
+    <!-- CROSSHAIR -->
+    <div id="crosshair"></div>
+
     <!-- COUNTDOWN -->
     <div id="countdown">3</div>
 
@@ -47,13 +61,29 @@
     <script type="module" src="motionshot.js"></script>
     <script type="module" src="background.js"></script>
 
-    <script>
+    <script type="module">
+      import { lockPointer, resetCamera, setBallVisibility } from './ball.js';
+
       const btnPlay = document.getElementById('btn-play');
       const btnPractice = document.getElementById('btn-practice');
       const btnBack = document.getElementById('btn-back');
       const playModes = document.getElementById('play-modes');
       const countdownEl = document.getElementById('countdown');
+      const crosshair = document.getElementById('crosshair');
+      
+      const menuOverlay = document.getElementById('menu-overlay');
+      const pauseOverlay = document.getElementById('pause-overlay');
+      const btnResume = document.getElementById('btn-resume');
+      const btnRestart = document.getElementById('btn-restart');
+      const btnExit = document.getElementById('btn-exit');
 
+      let currentMode = null;
+      let isPaused = false;
+      let isGameActive = false; // True when actually PLAYING (not in menu)
+
+      // ===========================
+      // MAIN MENU LOGIC
+      // ===========================
       btnPlay.addEventListener('click', () => {
         playModes.classList.add('visible');
         btnPlay.style.display = 'none';
@@ -72,6 +102,10 @@
         let timeLeft = 3;
         countdownEl.textContent = timeLeft;
         countdownEl.style.display = 'block';
+        menuOverlay.style.display = 'none';
+        
+        // Hide ball during countdown
+        setBallVisibility(false);
 
         const interval = setInterval(() => {
           timeLeft--;
@@ -87,21 +121,78 @@
 
       window.selectMode = (mode) => {
         console.log(`Mode selected: ${mode}`);
-
-        const overlay = document.getElementById('menu-overlay');
-        overlay.style.opacity = '0';
-        overlay.style.pointerEvents = 'none';
-
+        currentMode = mode;
+        
+        // Hide Main Menu
+        menuOverlay.style.display = 'none';
+        
         startCountdown(() => {
-          if (mode === 'spidershot') {
-            console.log('Spidershot START');
-            if (window.startSpidershot) window.startSpidershot();
-          } else if (mode === 'motionshot') {
-            console.log('Motionshot START');
-            if (window.startMotionshot) window.startMotionshot();
-          }
+          startGame(mode);
         });
       };
+
+      function startGame(mode) {
+        isGameActive = true;
+        isPaused = false;
+        crosshair.style.display = 'block';
+        
+        if (mode === 'spidershot') {
+          console.log('Spidershot START');
+          if (window.startSpidershot) window.startSpidershot();
+        } else if (mode === 'motionshot') {
+          console.log('Motionshot START');
+          if (window.startMotionshot) window.startMotionshot();
+        }
+      }
+
+      // ===========================
+      // PAUSE MENU LOGIC
+      // ===========================
+      
+      // Called by ball.js when pointer lock is lost (ESC pressed)
+      window.onGamePause = () => {
+        if (isGameActive && !isPaused) {
+           isPaused = true;
+           pauseOverlay.style.display = 'flex';
+           crosshair.style.display = 'none';
+        }
+      };
+
+      btnResume.addEventListener('click', () => {
+        if (isGameActive && isPaused) {
+            isPaused = false;
+            pauseOverlay.style.display = 'none';
+            crosshair.style.display = 'block';
+            lockPointer();
+        }
+      });
+
+      btnRestart.addEventListener('click', () => {
+        pauseOverlay.style.display = 'none';
+        resetCamera(); 
+        
+        // Explicitly hide before countdown starts to be sure
+        setBallVisibility(false);
+        
+        startCountdown(() => {
+            startGame(currentMode);
+        });
+      });
+
+      btnExit.addEventListener('click', () => {
+        isGameActive = false;
+        isPaused = false;
+        currentMode = null;
+        
+        pauseOverlay.style.display = 'none';
+        crosshair.style.display = 'none';
+        
+        // Show Main Menu
+        menuOverlay.style.display = 'flex';
+        resetCamera();
+        
+        window.location.reload(); 
+      });
 
       btnPractice.addEventListener('click', () => {
         console.log('Practice mode selected');

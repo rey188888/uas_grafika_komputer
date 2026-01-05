@@ -1,5 +1,6 @@
 
-import { sphere, hitSphere, canvas, camera, raycaster, mouse, setUpdateCallback } from "./ball.js";
+import * as THREE from "three";
+import { sphere, hitSphere, canvas, camera, raycaster, setUpdateCallback, lockPointer } from "./ball.js";
 
 let gameStarted = false;
 let score = 0;
@@ -12,7 +13,6 @@ function randomizePosition() {
   const y = (Math.random() - 0.5) * 4;
   const z = (Math.random() - 0.5) * 2;
   sphere.position.set(x, y, z);
-  // hitSphere position is synced in ball.js animate loop
 }
 
 // ========================
@@ -25,6 +25,7 @@ window.startSpidershot = () => {
   randomizePosition();
   
   setUpdateCallback(null); 
+  lockPointer(); // Lock cursor for FPS feel
   
   console.log("SPIDERSHOT STARTED");
 };
@@ -32,15 +33,12 @@ window.startSpidershot = () => {
 // ========================
 // CLICK DETECTION
 // ========================
-// Using pointerdown for better mobile/tablet support potentially, though click is fine.
-canvas.addEventListener("pointerdown", (event) => {
+canvas.addEventListener("mousedown", (event) => {
   if (!gameStarted || !sphere.visible) return;
+  // Use mousedown instead of pointerdown usually better with pointerlock
 
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
+  // Raycast from camera center (0,0)
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
   // Intersect against the larger hitSphere
   const intersects = raycaster.intersectObject(hitSphere);
@@ -50,7 +48,7 @@ canvas.addEventListener("pointerdown", (event) => {
     console.log("SPIDERSHOT HIT! SCORE:", score);
 
     sphere.visible = false;
-    hitSphere.visible = false; // Immediately hide hitbox too
+    hitSphere.visible = false; 
 
     setTimeout(() => {
       if (gameStarted) {

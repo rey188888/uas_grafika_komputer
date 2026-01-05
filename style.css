@@ -4,6 +4,8 @@ body {
     background: #222;
     font-family: sans-serif;
     color: #fff;
+    user-select: none;
+    /* Prevent text selection */
 }
 
 canvas {
@@ -11,6 +13,41 @@ canvas {
     position: absolute;
     top: 0;
     left: 0;
+}
+
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0.8;
+    display: none;
+    /* Hidden by default */
+}
+
+#crosshair::before,
+#crosshair::after {
+    content: '';
+    position: absolute;
+    background: #00ff00;
+}
+
+#crosshair::before {
+    top: 9px;
+    left: 0;
+    width: 20px;
+    height: 2px;
+}
+
+#crosshair::after {
+    top: 0;
+    left: 9px;
+    width: 2px;
+    height: 20px;
 }
 
 #countdown {
@@ -27,7 +64,7 @@ canvas {
     display: none;
     pointer-events: none;
 
-    text-shadow: 0 0 25px rgba(255,255,255,0.6);
+    text-shadow: 0 0 25px rgba(255, 255, 255, 0.6);
 }
 
 #webgl {
@@ -38,7 +75,8 @@ canvas {
     z-index: 1;
 }
 
-#menu-overlay {
+#menu-overlay,
+#pause-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -49,6 +87,7 @@ canvas {
     justify-content: center;
     align-items: center;
     background: rgba(0, 0, 0, 0.5);
+    transition: opacity 0.3s;
 }
 
 .menu-card {

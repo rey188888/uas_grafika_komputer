@@ -1,5 +1,6 @@
 
-import { sphere, hitSphere, canvas, camera, raycaster, mouse, setUpdateCallback } from "./ball.js";
+import * as THREE from "three";
+import { sphere, hitSphere, canvas, camera, raycaster, setUpdateCallback, lockPointer } from "./ball.js";
 
 let gameStarted = false;
 let score = 0;
@@ -32,6 +33,7 @@ window.startMotionshot = () => {
   sphere.visible = true;
   
   setUpdateCallback(updateMotion);
+  lockPointer();
   
   console.log("MOTIONSHOT STARTED");
 };
@@ -39,14 +41,10 @@ window.startMotionshot = () => {
 // ========================
 // CLICK DETECTION
 // ========================
-canvas.addEventListener("pointerdown", (event) => {
+canvas.addEventListener("mousedown", (event) => {
   if (!gameStarted || !sphere.visible) return;
 
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
   const intersects = raycaster.intersectObject(hitSphere);
 
@@ -54,16 +52,14 @@ canvas.addEventListener("pointerdown", (event) => {
     score++;
     console.log("MOTIONSHOT HIT! SCORE:", score);
     
-    speed += 0.05; // Slightly increase speed
+    speed += 0.05; 
     sphere.visible = false;
     hitSphere.visible = false;
 
     // Randomize next state
     setTimeout(() => {
       if (gameStarted) {
-        // Jump to a random point in the timeline
         time = Math.random() * 100;
-        // Shift Y position to add variety
         offsetY = (Math.random() - 0.5) * 3; 
 
         sphere.visible = true;

@@ -25,7 +25,59 @@ export const camera = new THREE.PerspectiveCamera(
   0.1,
   100
 );
+// Initial position
 camera.position.z = 10;
+
+// FPS CAMERA CONTROLS
+let yaw = 0;
+let pitch = 0;
+const sensitivity = 0.002;
+let isLocked = false;
+
+document.addEventListener('mousemove', (event) => {
+  if (isLocked) {
+    yaw -= event.movementX * sensitivity;
+    pitch -= event.movementY * sensitivity;
+    
+    // Clamp pitch (limit looking up/down)
+    const maxPitch = Math.PI / 2 - 0.1;
+    pitch = Math.max(-maxPitch, Math.min(maxPitch, pitch));
+
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  }
+});
+
+// Helper to start locking pointer
+export function lockPointer() {
+    canvas.requestPointerLock();
+}
+
+export function unlockPointer() {
+    document.exitPointerLock();
+}
+
+// Track pointer lock state
+document.addEventListener('pointerlockchange', () => {
+    isLocked = (document.pointerLockElement === canvas);
+    
+    // If user presses ESC or alt-tab, browser unlocks pointer.
+    // Use this to trigger pause menu.
+    if (!isLocked && window.onGamePause) {
+        window.onGamePause();
+    }
+});
+
+export function resetCamera() {
+    yaw = 0;
+    pitch = 0;
+    camera.rotation.set(0, 0, 0);
+}
+
+// Helper to force hide ball (for restart sequence)
+export function setBallVisibility(visible) {
+    sphere.visible = visible;
+    hitSphere.visible = visible;
+}
 
 // ========================
 // RESIZE
@@ -40,7 +92,6 @@ window.addEventListener("resize", () => {
 // TEXTURE
 // ========================
 const loader = new THREE.TextureLoader();
-// Adjust paths if necessary, assuming relative current dir
 const albedo = loader.load("./img/metal-roof-unity/metal-roof_albedo.png");
 const rough = loader.load("./img/metal-roof-unity/metal-roof_ao.png");
 const normal = loader.load("./img/metal-roof-unity/metal-roof_normal-ogl.png");
@@ -50,7 +101,7 @@ albedo.colorSpace = THREE.SRGBColorSpace;
 // ========================
 // GEOMETRY & MATERIAL
 // ========================
-const geometry = new THREE.SphereGeometry(0.1, 128, 128); // Visual size
+const geometry = new THREE.SphereGeometry(0.1, 128, 128); 
 geometry.setAttribute(
   "uv2",
   new THREE.BufferAttribute(geometry.attributes.uv.array, 2)
@@ -76,16 +127,15 @@ scene.add(sphere);
 // ========================
 // HITBOX (INVISIBLE, LARGER)
 // ========================
-// Making it 3x larger for easier clicking
 const hitGeometry = new THREE.SphereGeometry(0.5, 32, 32); 
 const hitMaterial = new THREE.MeshBasicMaterial({ 
     color: 0xff0000,
     transparent: true,
-    opacity: 0, // Invisible
+    opacity: 0, 
     depthWrite: false
 });
 export const hitSphere = new THREE.Mesh(hitGeometry, hitMaterial);
-hitSphere.visible = false; // logic will toggle this along with sphere
+hitSphere.visible = false;
 scene.add(hitSphere);
 
 
@@ -98,10 +148,9 @@ dirLight.position.set(2, 5, 5);
 scene.add(dirLight);
 
 // ========================
-// RAYCASTER (Shared)
+// RAYCASTER
 // ========================
 export const raycaster = new THREE.Raycaster();
-export const mouse = new THREE.Vector2();
 
 // ========================
 // LOOP SYSTEM
@@ -115,7 +164,6 @@ export function setUpdateCallback(callback) {
 function animate() {
   sphere.rotation.y += 0.004; 
   
-  // Sync hitbox position
   hitSphere.position.copy(sphere.position);
   hitSphere.visible = sphere.visible;
 
