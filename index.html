@@ -11,52 +11,95 @@
     <canvas id="bg-canvas"></canvas>
     <canvas id="webgl"></canvas>
 
+    <!-- MENU -->
     <div id="menu-overlay">
       <div class="menu-card">
         <h1>Aim Trainer</h1>
-        
+
         <div id="main-menu">
           <button id="btn-play" class="btn btn-primary">Play</button>
-          
+
           <div id="play-modes">
-            <button class="btn mode-btn" onclick="selectMode('spidershot')">Spidershot</button>
-            <button class="btn mode-btn" onclick="selectMode('motionshot')">Motionshot</button>
+            <button class="btn mode-btn" onclick="selectMode('spidershot')">
+              Spidershot
+            </button>
+            <button class="btn mode-btn" onclick="selectMode('motionshot')">
+              Motionshot
+            </button>
           </div>
 
-          <button id="btn-practice" class="btn btn-secondary">Practice</button>
+          <button id="btn-back" class="btn btn-secondary" style="display:none;">
+            Back
+          </button>
+
+          <button id="btn-practice" class="btn btn-secondary">
+            Practice
+          </button>
         </div>
       </div>
     </div>
 
+    <!-- COUNTDOWN -->
+    <div id="countdown">3</div>
+
     <script type="module" src="ball.js"></script>
     <script type="module" src="background.js"></script>
-    
+
     <script>
       const btnPlay = document.getElementById('btn-play');
+      const btnPractice = document.getElementById('btn-practice');
+      const btnBack = document.getElementById('btn-back');
       const playModes = document.getElementById('play-modes');
-      const menuCard = document.querySelector('.menu-card');
+      const countdownEl = document.getElementById('countdown');
 
       btnPlay.addEventListener('click', () => {
-        const isVisible = playModes.classList.contains('visible');
-        if (isVisible) {
-          playModes.classList.remove('visible');
-          playModes.style.maxHeight = '0';
-        } else {
-          playModes.classList.add('visible');
-          playModes.style.maxHeight = '200px'; 
-        }
+        playModes.classList.add('visible');
+        btnPlay.style.display = 'none';
+        btnPractice.style.display = 'none';
+        btnBack.style.display = 'block';
       });
+
+      btnBack.addEventListener('click', () => {
+        playModes.classList.remove('visible');
+        btnPlay.style.display = 'block';
+        btnPractice.style.display = 'block';
+        btnBack.style.display = 'none';
+      });
+
+      function startCountdown(onFinish) {
+        let timeLeft = 3;
+        countdownEl.textContent = timeLeft;
+        countdownEl.style.display = 'block';
+
+        const interval = setInterval(() => {
+          timeLeft--;
+          if (timeLeft > 0) {
+            countdownEl.textContent = timeLeft;
+          } else {
+            clearInterval(interval);
+            countdownEl.style.display = 'none';
+            onFinish();
+          }
+        }, 1000);
+      }
 
       window.selectMode = (mode) => {
         console.log(`Mode selected: ${mode}`);
+
         const overlay = document.getElementById('menu-overlay');
         overlay.style.opacity = '0';
         overlay.style.pointerEvents = 'none';
 
+        if (mode === 'spidershot') {
+          startCountdown(() => {
+            console.log('Spidershot START');
+              startSpidershot();
+          });
+        }
       };
-      
-      document.getElementById('btn-practice').addEventListener('click', () => {
-         console.log('Practice mode selected');
+
+      btnPractice.addEventListener('click', () => {
+        console.log('Practice mode selected');
       });
     </script>
   </body>
