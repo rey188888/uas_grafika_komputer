@@ -70,7 +70,7 @@ scene.add(light);
 
 /* GAME STATE */
 let gameStarted = false;
-let gamePaused = false; // Status Pause
+let gamePaused = false;
 let currentMode = ""; 
 let score = 0;
 let timeLeft = 30;
@@ -82,7 +82,7 @@ export let stats = { spawned: 0, hit: 0, shots: 0 };
 
 /* FPS MOUSE LOOK */
 document.addEventListener('mousemove', (event) => {
-  if (!gameStarted || !isLocked || gamePaused) return; // Jangan gerak kalau pause
+  if (!gameStarted || !isLocked || gamePaused) return;
   yaw -= event.movementX * sensitivity;
   pitch -= event.movementY * sensitivity;
   const maxPitch = Math.PI / 2 - 0.1;
@@ -90,20 +90,20 @@ document.addEventListener('mousemove', (event) => {
   camera.rotation.set(pitch, yaw, 0, 'YXZ');
 });
 
-// DETEKSI ESCAPE (POINTER UNLOCK)
 document.addEventListener('pointerlockchange', () => {
   isLocked = (document.pointerLockElement === canvas);
-  
-  // Jika mouse lepas (ESC ditekan) DAN game sedang jalan -> Pause Game
   if (!isLocked && gameStarted && !gamePaused) {
       if (window.onGamePause) window.onGamePause();
   }
 });
 
-// Helper untuk HTML mengontrol status pause
 window.setGamePaused = (status) => {
     gamePaused = status;
 };
+
+/* OFF-CENTER SHOOTING CONFIG (NEW, NON-DYNAMIC) */
+const AIM_CONE_ANGLE = THREE.MathUtils.degToRad(3.5);
+const AIM_MAX_DISTANCE = 15;
 
 /* START GAME */
 window.startGame = (mode) => {
@@ -132,7 +132,6 @@ window.startGame = (mode) => {
 
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
-    // Hanya kurangi waktu jika TIDAK pause
     if (!gamePaused) {
         timeLeft--;
         timeEl.textContent = timeLeft;
@@ -173,32 +172,71 @@ btnResultBack.addEventListener("click", () => {
 
 /* SHOOTING LOGIC */
 const raycaster = new THREE.Raycaster();
-const centerScreen = new THREE.Vector2(0, 0);
 
 canvas.addEventListener("mousedown", () => {
-  // Cek gamePaused juga
   if (!gameStarted || !isLocked || gamePaused) return; 
   
   stats.shots++;
   if (!targetGroup.visible) return;
 
-  raycaster.setFromCamera(centerScreen, camera);
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+
+  const targetPos = new THREE.Vector3();
+  sphereHitbox.getWorldPosition(targetPos);
+
+  const toTarget = targetPos.clone().sub(camera.position);
+  const distance = toTarget.length();
+  toTarget.normalize();
+
+  let shootDir = camDir.clone();
+  const angle = camDir.angleTo(toTarget);
+
+  // OFF-CENTER HIT ALLOWANCE (NO DYNAMIC ASSIST)
+  if (angle <= AIM_CONE_ANGLE && distance <= AIM_MAX_DISTANCE) {
+    shootDir = toTarget;
+  }
+
+  raycaster.set(camera.position, shootDir);
   const hit = raycaster.intersectObject(sphereHitbox);
 
   if (hit.length) {
     stats.hit++;
     const rt = performance.now() - spawnTime;
-    
-    const maxScore = 100; const minScore = 10;
-    const perfectTime = 400; const slowTime = 2000;   
+
+    // ===== TIMING SCORE (TIDAK DIUBAH) =====
+    const maxScore = 100; 
+    const minScore = 10;
+    const perfectTime = 400; 
+    const slowTime = 2000;   
     let point = 0;
+
     if (rt <= perfectTime) point = maxScore;
     else if (rt >= slowTime) point = minScore;
     else {
       const percentage = 1 - ((rt - perfectTime) / (slowTime - perfectTime));
       point = Math.round(minScore + (percentage * (maxScore - minScore)));
     }
-    score += point;
+
+    // ===== ACCURACY SCORE (BARU) =====
+    const hitPoint = hit[0].point.clone();
+
+    const center = new THREE.Vector3();
+    sphereHitbox.getWorldPosition(center);
+
+    const distanceFromCenter = hitPoint.distanceTo(center);
+    const hitRadius = geometryHitbox.parameters.radius;
+
+    // 0 = tengah, 1 = pinggir
+    const accuracyRatio = Math.min(distanceFromCenter / hitRadius, 1);
+
+    // multiplier: tengah 1.3x → pinggir 0.7x
+    const accuracyMultiplier = THREE.MathUtils.lerp(1.3, 0.7, accuracyRatio);
+
+    // FINAL SCORE
+    const finalPoint = Math.round(point * accuracyMultiplier);
+
+    score += finalPoint;
     scoreEl.textContent = score;
 
     targetGroup.visible = false;
@@ -218,8 +256,6 @@ canvas.addEventListener("mousedown", () => {
 /* ANIMATE LOOP */
 function animate() {
   requestAnimationFrame(animate);
-  
-  // Hentikan update visual/gerakan jika Pause
   if (gamePaused) return;
 
   sphereVisual.rotation.y += 0.004;
@@ -229,7 +265,6 @@ function animate() {
       MotionLogic.update();
     }
   }
-
   renderer.render(scene, camera);
 }
 animate();
