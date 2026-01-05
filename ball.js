@@ -18,6 +18,29 @@ const resScore = document.getElementById("res-score");
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 
+/* ===================== DIFFICULTY CONFIG (TAMBAHAN) ===================== */
+let currentDifficulty = "normal";
+
+const DIFFICULTY_CONFIG = {
+  easy: {
+    scale: 1.2,
+    scoreMultiplier: 0.7
+  },
+  normal: {
+    scale: 1.0,
+    scoreMultiplier: 1.0
+  },
+  hard: {
+    scale: 0.5,
+    scoreMultiplier: 1.5
+  }
+};
+
+window.setDifficulty = (difficulty) => {
+  currentDifficulty = difficulty;
+};
+/* ====================================================================== */
+
 /* RENDERER */
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -29,7 +52,10 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 camera.position.z = 10;
 
 /* FPS CONTROLS */
-let yaw = 0; let pitch = 0; const sensitivity = 0.002; let isLocked = false;
+let yaw = 0;
+let pitch = 0;
+const sensitivity = 0.002;
+let isLocked = false;
 
 window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -50,13 +76,24 @@ scene.add(targetGroup);
 
 const geometryVisual = new THREE.SphereGeometry(0.1, 64, 64);
 const materialVisual = new THREE.MeshStandardMaterial({
-  color: 0x00ffff, normalMap: normal, roughnessMap: rough, aoMap: rough, displacementMap: height, roughness: 0.5, metalness: 0.1,
+  color: 0x00ffff,
+  normalMap: normal,
+  roughnessMap: rough,
+  aoMap: rough,
+  displacementMap: height,
+  roughness: 0.5,
+  metalness: 0.1,
 });
 const sphereVisual = new THREE.Mesh(geometryVisual, materialVisual);
 targetGroup.add(sphereVisual);
 
-const geometryHitbox = new THREE.SphereGeometry(0.25, 16, 16); 
-const materialHitbox = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0, depthWrite: false });
+const geometryHitbox = new THREE.SphereGeometry(0.25, 16, 16);
+const materialHitbox = new THREE.MeshBasicMaterial({
+  color: 0xff0000,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false
+});
 const sphereHitbox = new THREE.Mesh(geometryHitbox, materialHitbox);
 targetGroup.add(sphereHitbox);
 
@@ -71,71 +108,80 @@ scene.add(light);
 /* GAME STATE */
 let gameStarted = false;
 let gamePaused = false;
-let currentMode = ""; 
+let currentMode = "";
 let score = 0;
 let timeLeft = 30;
-const INITIAL_TIME = 30;
+let INITIAL_TIME = 30;
 let timer = null;
 let spawnTime = 0;
 
 export let stats = { spawned: 0, hit: 0, shots: 0 };
 
 /* FPS MOUSE LOOK */
-document.addEventListener('mousemove', (event) => {
+document.addEventListener("mousemove", (event) => {
   if (!gameStarted || !isLocked || gamePaused) return;
   yaw -= event.movementX * sensitivity;
   pitch -= event.movementY * sensitivity;
   const maxPitch = Math.PI / 2 - 0.1;
   pitch = Math.max(-maxPitch, Math.min(maxPitch, pitch));
-  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  camera.rotation.set(pitch, yaw, 0, "YXZ");
 });
 
-document.addEventListener('pointerlockchange', () => {
-  isLocked = (document.pointerLockElement === canvas);
+document.addEventListener("pointerlockchange", () => {
+  isLocked = document.pointerLockElement === canvas;
   if (!isLocked && gameStarted && !gamePaused) {
-      if (window.onGamePause) window.onGamePause();
+    if (window.onGamePause) window.onGamePause();
   }
 });
 
 window.setGamePaused = (status) => {
-    gamePaused = status;
+  gamePaused = status;
 };
 
-/* OFF-CENTER SHOOTING CONFIG (NEW, NON-DYNAMIC) */
+/* OFF-CENTER SHOOTING CONFIG */
 const AIM_CONE_ANGLE = THREE.MathUtils.degToRad(3.5);
 const AIM_MAX_DISTANCE = 15;
 
 /* START GAME */
-window.startGame = (mode) => {
+window.startGame = (mode, customTime = 30,difficulty = "normal") => {
+  INITIAL_TIME = customTime;
   currentMode = mode;
   gameStarted = true;
   gamePaused = false;
   score = 0;
   timeLeft = INITIAL_TIME;
   stats = { spawned: 0, hit: 0, shots: 0 };
+  currentDifficulty = difficulty;
 
   scoreEl.textContent = score;
   timeEl.textContent = timeLeft;
-  
-  yaw = 0; pitch = 0; camera.rotation.set(0, 0, 0);
+
+  yaw = 0;
+  pitch = 0;
+  camera.rotation.set(0, 0, 0);
   canvas.requestPointerLock();
-  
+
   scoreboardContainer.style.display = "block";
   resultOverlay.style.display = "none";
   crosshair.style.display = "block";
   targetGroup.visible = true;
 
-  if (currentMode === 'spidershot') SpiderLogic.init(); 
-  else if (currentMode === 'motionshot') MotionLogic.init();
-  
+  /* APPLY DIFFICULTY SCALE (TAMBAHAN) */
+  const diff = DIFFICULTY_CONFIG[currentDifficulty];
+  sphereVisual.scale.setScalar(diff.scale);
+  sphereHitbox.scale.setScalar(diff.scale);
+
+  if (mode === "spidershot") SpiderLogic.init();
+  else if (mode === "motionshot") MotionLogic.init();
+
   spawnTime = performance.now();
 
   if (timer) clearInterval(timer);
   timer = setInterval(() => {
     if (!gamePaused) {
-        timeLeft--;
-        timeEl.textContent = timeLeft;
-        if (timeLeft <= 0) endGame();
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      if (timeLeft <= 0) endGame();
     }
   }, 1000);
 };
@@ -145,12 +191,12 @@ function endGame() {
   targetGroup.visible = false;
   clearInterval(timer);
   document.exitPointerLock();
-  
+
   crosshair.style.display = "none";
   scoreboardContainer.style.display = "none";
 
   const misses = stats.shots - stats.hit;
-  const finalMiss = misses < 0 ? 0 : misses; 
+  const finalMiss = misses < 0 ? 0 : misses;
 
   resTime.textContent = `${INITIAL_TIME}s`;
   resSpawn.textContent = stats.spawned;
@@ -164,7 +210,7 @@ function endGame() {
 btnResultBack.addEventListener("click", () => {
   resultOverlay.style.display = "none";
   const menuOverlay = document.getElementById("menu-overlay");
-  if(menuOverlay) {
+  if (menuOverlay) {
     menuOverlay.style.opacity = "1";
     menuOverlay.style.pointerEvents = "auto";
   }
@@ -174,8 +220,8 @@ btnResultBack.addEventListener("click", () => {
 const raycaster = new THREE.Raycaster();
 
 canvas.addEventListener("mousedown", () => {
-  if (!gameStarted || !isLocked || gamePaused) return; 
-  
+  if (!gameStarted || !isLocked || gamePaused) return;
+
   stats.shots++;
   if (!targetGroup.visible) return;
 
@@ -192,7 +238,6 @@ canvas.addEventListener("mousedown", () => {
   let shootDir = camDir.clone();
   const angle = camDir.angleTo(toTarget);
 
-  // OFF-CENTER HIT ALLOWANCE (NO DYNAMIC ASSIST)
   if (angle <= AIM_CONE_ANGLE && distance <= AIM_MAX_DISTANCE) {
     shootDir = toTarget;
   }
@@ -204,37 +249,32 @@ canvas.addEventListener("mousedown", () => {
     stats.hit++;
     const rt = performance.now() - spawnTime;
 
-    // ===== TIMING SCORE (TIDAK DIUBAH) =====
-    const maxScore = 100; 
+    const maxScore = 100;
     const minScore = 10;
-    const perfectTime = 400; 
-    const slowTime = 2000;   
+    const perfectTime = 400;
+    const slowTime = 2000;
     let point = 0;
 
     if (rt <= perfectTime) point = maxScore;
     else if (rt >= slowTime) point = minScore;
     else {
-      const percentage = 1 - ((rt - perfectTime) / (slowTime - perfectTime));
-      point = Math.round(minScore + (percentage * (maxScore - minScore)));
+      const percentage = 1 - (rt - perfectTime) / (slowTime - perfectTime);
+      point = Math.round(minScore + percentage * (maxScore - minScore));
     }
 
-    // ===== ACCURACY SCORE (BARU) =====
     const hitPoint = hit[0].point.clone();
-
     const center = new THREE.Vector3();
     sphereHitbox.getWorldPosition(center);
 
     const distanceFromCenter = hitPoint.distanceTo(center);
     const hitRadius = geometryHitbox.parameters.radius;
-
-    // 0 = tengah, 1 = pinggir
     const accuracyRatio = Math.min(distanceFromCenter / hitRadius, 1);
-
-    // multiplier: tengah 1.3x → pinggir 0.7x
     const accuracyMultiplier = THREE.MathUtils.lerp(1.3, 0.7, accuracyRatio);
 
-    // FINAL SCORE
-    const finalPoint = Math.round(point * accuracyMultiplier);
+    /* DIFFICULTY SCORE MULTIPLIER (TAMBAHAN) */
+    const diffMultiplier = DIFFICULTY_CONFIG[currentDifficulty].scoreMultiplier;
+
+    const finalPoint = Math.round(point * accuracyMultiplier * diffMultiplier);
 
     score += finalPoint;
     scoreEl.textContent = score;
@@ -248,8 +288,8 @@ canvas.addEventListener("mousedown", () => {
       stats.spawned++;
     };
 
-    if (currentMode === 'spidershot') SpiderLogic.onHit(respawnCallback);
-    else if (currentMode === 'motionshot') MotionLogic.onHit(respawnCallback);
+    if (currentMode === "spidershot") SpiderLogic.onHit(respawnCallback);
+    else if (currentMode === "motionshot") MotionLogic.onHit(respawnCallback);
   }
 });
 
@@ -260,11 +300,11 @@ function animate() {
 
   sphereVisual.rotation.y += 0.004;
 
-  if (gameStarted) {
-    if (currentMode === 'motionshot') {
-      MotionLogic.update();
-    }
+  if (gameStarted && currentMode === "motionshot") {
+    MotionLogic.update();
   }
+
   renderer.render(scene, camera);
 }
+
 animate();
