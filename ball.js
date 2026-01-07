@@ -96,6 +96,60 @@ const materialHitbox = new THREE.MeshBasicMaterial({
 });
 const sphereHitbox = new THREE.Mesh(geometryHitbox, materialHitbox);
 targetGroup.add(sphereHitbox);
+function playHitExplosion(onComplete) {
+  const particleCount = 16;
+  const particles = [];
+
+  const origin = new THREE.Vector3();
+  sphereVisual.getWorldPosition(origin);
+
+  for (let i = 0; i < particleCount; i++) {
+    const size = Math.random() * 0.04 + 0.02;
+
+    const geo = new THREE.SphereGeometry(size, 6, 6);
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: Math.random() > 0.5 ? 0xffaa00 : 0x888888,
+      transparent: true,
+      opacity: 1
+    });
+
+    const p = new THREE.Mesh(geo, mat);
+    p.position.copy(origin);
+
+    p.userData.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.25,
+      Math.random() * 0.25,
+      (Math.random() - 0.5) * 0.25
+    );
+
+    scene.add(p);
+    particles.push(p);
+  }
+
+  let life = 0;
+  const maxLife = 25;
+
+  function animate() {
+    life++;
+
+    particles.forEach(p => {
+      p.position.add(p.userData.velocity);
+      p.material.opacity -= 0.04;
+      p.scale.multiplyScalar(0.95);
+    });
+
+    if (life < maxLife) {
+      requestAnimationFrame(animate);
+    } else {
+      particles.forEach(p => scene.remove(p));
+      if (onComplete) onComplete();
+    }
+  }
+
+  animate();
+}
+
 
 targetGroup.visible = false;
 
@@ -247,6 +301,7 @@ canvas.addEventListener("mousedown", () => {
 
   if (hit.length) {
     stats.hit++;
+    playHitExplosion();
     const rt = performance.now() - spawnTime;
 
     const maxScore = 100;
@@ -279,7 +334,7 @@ canvas.addEventListener("mousedown", () => {
     score += finalPoint;
     scoreEl.textContent = score;
 
-    targetGroup.visible = false;
+    // targetGroup.visible = false;
 
     const respawnCallback = () => {
       if (!gameStarted) return;
@@ -290,6 +345,16 @@ canvas.addEventListener("mousedown", () => {
 
     if (currentMode === "spidershot") SpiderLogic.onHit(respawnCallback);
     else if (currentMode === "motionshot") MotionLogic.onHit(respawnCallback);
+  }
+  else {
+    let missPenalty = 20;
+
+    if (currentDifficulty === "hard") missPenalty = 40;
+    else if (currentDifficulty === "easy") missPenalty = 10;
+
+    score -= missPenalty;
+    if (score < 0) score = 0;
+    scoreEl.textContent = score;
   }
 });
 
