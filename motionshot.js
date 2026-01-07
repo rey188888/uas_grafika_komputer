@@ -1,37 +1,57 @@
 import { targetGroup, stats } from "./ball.js";
 
+/* ===================== STATE ===================== */
 let time = 0;
 let speed = 2.0;
 let offsetY = 0;
 
-// Dipanggil saat awal mulai
+const START_Z = -3;        
+const AMPLITUDE_X = 4;     
+const AMPLITUDE_Y = 2;     
+const TIME_STEP = 0.01;    
+
+/* ===================== SAFETY FLAG ===================== */
+let initialized = false;
+
+/* ===================== DIPANGGIL SAAT AWAL MULAI ===================== */
 export function init() {
   time = 0;
   speed = 2.0;
   offsetY = 0;
-  
-  targetGroup.position.set(0, 0, 0);
+
+  targetGroup.position.set(0, 0, START_Z);
+  targetGroup.visible = true;
+
   stats.spawned++;
+  initialized = true;
 }
 
-// Dipanggil setiap frame (Looping)
+/* ===================== DIPANGGIL SETIAP FRAME ===================== */
 export function update() {
-  time += 0.01 * speed;
-  
+  // Safety guard: mencegah update sebelum init
+  if (!initialized) return;
+
+  time += TIME_STEP * speed;
+
   // Gerakan Sinus (Kiri-Kanan) & Cosinus (Naik-Turun)
-  targetGroup.position.x = Math.sin(time) * 4; 
-  targetGroup.position.y = (Math.cos(time * 0.5) * 2) + offsetY;
+  targetGroup.position.x = Math.sin(time) * AMPLITUDE_X;
+  targetGroup.position.y = (Math.cos(time * 0.5) * AMPLITUDE_Y) + offsetY;
 }
 
-// Dipanggil saat bola kena hit
+/* ===================== DIPANGGIL SAAT TARGET KENA HIT ===================== */
 export function onHit(respawnCallback) {
-  speed += 0.05; // Tambah susah
+  // Scaling difficulty
+  speed += 0.05;
+
+  // Sembunyikan sebentar biar terasa respawn
+  targetGroup.visible = false;
 
   setTimeout(() => {
-    // Reset parameter gerakan agar posisi loncat
+    // Loncat posisi supaya tidak mudah diprediksi
     time = Math.random() * 100;
     offsetY = (Math.random() - 0.5) * 3;
-    
-    respawnCallback(); // Panggil callback di ball.js
+
+    targetGroup.visible = true;
+    respawnCallback(); // Callback dari ball.js (reset timer spawn)
   }, 100);
 }

@@ -221,45 +221,12 @@ btnResultBack.onclick = () => {
 
 /* ===================== HIT EXPLOSION ===================== */
 function playHitExplosion(onComplete) {
-  const particles = [];
-  const origin = new THREE.Vector3();
-  sphereVisual.getWorldPosition(origin);
-
-  for (let i = 0; i < 16; i++) {
-    const geo = new THREE.SphereGeometry(Math.random() * 0.04 + 0.02, 6, 6);
-    const mat = new THREE.MeshBasicMaterial({
-      color: Math.random() > 0.5 ? 0xffaa00 : 0x888888,
-      transparent: true,
-      opacity: 1
-    });
-
-    const p = new THREE.Mesh(geo, mat);
-    p.position.copy(origin);
-    p.userData.vel = new THREE.Vector3(
-      (Math.random() - 0.5) * 0.25,
-      Math.random() * 0.25,
-      (Math.random() - 0.5) * 0.25
-    );
-
-    scene.add(p);
-    particles.push(p);
+  if (currentMode === "spidershot") {
+    SpiderLogic.playHitExplosion(scene, sphereVisual, onComplete);
+  } else {
+    // fallback: tetap jalan seperti biasa (future safe)
+    SpiderLogic.playHitExplosion(scene, sphereVisual, onComplete);
   }
-
-  let life = 0;
-  (function animate() {
-    life++;
-    particles.forEach(p => {
-      p.position.add(p.userData.vel);
-      p.material.opacity -= 0.04;
-      p.scale.multiplyScalar(0.95);
-    });
-
-    if (life < 25) requestAnimationFrame(animate);
-    else {
-      particles.forEach(p => scene.remove(p));
-      if (onComplete) onComplete();
-    }
-  })();
 }
 
 /* ===================== SHOOT ===================== */
@@ -362,7 +329,7 @@ function animate() {
   if (gamePaused) return;
 
   sphereVisual.rotation.y += 0.004;
-  if (gameStarted && currentMode === "motionshot") MotionLogic.WEQ();
+  if (gameStarted && currentMode === "motionshot") MotionLogic.update();;
   renderer.render(scene, camera);
 }
 animate();
