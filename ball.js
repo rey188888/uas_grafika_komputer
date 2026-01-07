@@ -96,6 +96,7 @@ const materialHitbox = new THREE.MeshBasicMaterial({
 });
 const sphereHitbox = new THREE.Mesh(geometryHitbox, materialHitbox);
 targetGroup.add(sphereHitbox);
+// efek meledak saat kena tembak
 function playHitExplosion(onComplete) {
   const particleCount = 16;
   const particles = [];
