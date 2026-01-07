@@ -2,113 +2,231 @@ import * as THREE from "three";
 import * as SpiderLogic from "./spidershot.js";
 import * as MotionLogic from "./motionshot.js";
 
+/* ===================== DOM ===================== */
 const canvas = document.getElementById("webgl");
 const scoreboardContainer = document.getElementById("scoreboard");
 const crosshair = document.getElementById("crosshair");
 
-// UI Hasil
 const resultOverlay = document.getElementById("result-overlay");
 const btnResultBack = document.getElementById("btn-result-back");
-const resTime = document.getElementById("res-time");
-const resSpawn = document.getElementById("res-spawn");
-const resHit = document.getElementById("res-hit");
-const resMiss = document.getElementById("res-miss");
-const resScore = document.getElementById("res-score");
 
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 
-/* ===================== DIFFICULTY CONFIG (TAMBAHAN) ===================== */
+const accuracyEl = document.getElementById("accuracy");
+const resAccuracy = document.getElementById("res-accuracy");
+const accuracyBar = document.getElementById("accuracy-bar");
+
+const resTime = document.getElementById("res-time");
+const resHit = document.getElementById("res-hit");
+const resMiss = document.getElementById("res-miss");
+const resScore = document.getElementById("res-score");
+
+/* ===================== COMBO UI  ===================== */
+const comboEl = document.createElement("div");
+comboEl.style.position = "absolute";
+comboEl.style.top = "70px";
+comboEl.style.left = "50%";
+comboEl.style.transform = "translateX(-50%)";
+comboEl.style.fontSize = "28px";
+comboEl.style.fontWeight = "bold";
+comboEl.style.color = "#ffcc00";
+comboEl.style.textShadow = "0 0 10px #ff9900";
+comboEl.style.display = "none";
+comboEl.textContent = "";
+comboEl.style.zIndex = "9999";
+document.body.appendChild(comboEl);
+
+/* ===================== DIFFICULTY ===================== */
 let currentDifficulty = "normal";
 
 const DIFFICULTY_CONFIG = {
-  easy: {
-    scale: 1.2,
-    scoreMultiplier: 0.7
-  },
-  normal: {
-    scale: 1.0,
-    scoreMultiplier: 1.0
-  },
-  hard: {
-    scale: 0.5,
-    scoreMultiplier: 1.5
-  }
+  easy:   { scale: 1.2, scoreMultiplier: 0.7, missPenalty: 10 },
+  normal: { scale: 1.0, scoreMultiplier: 1.0, missPenalty: 20 },
+  hard:   { scale: 0.5, scoreMultiplier: 1.5, missPenalty: 40 }
 };
 
-window.setDifficulty = (difficulty) => {
-  currentDifficulty = difficulty;
-};
-/* ====================================================================== */
+window.setDifficulty = d => currentDifficulty = d;
 
-/* RENDERER */
+/* ===================== RENDERER ===================== */
 export const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
 
-/* SCENE & CAMERA */
+/* ===================== SCENE & CAMERA ===================== */
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 100);
 camera.position.z = 10;
 
-/* FPS CONTROLS */
-let yaw = 0;
-let pitch = 0;
+/* ===================== STATE ===================== */
+let gameStarted = false;
+let gamePaused = false;
+let currentMode = "";
+let score = 0;
+let timeLeft = 30;
+let INITIAL_TIME = 30;
+let timer = null;
+let spawnTime = 0;
+
+/* ===================== COMBO STATE (TAMBAHAN) ===================== */
+let combo = 0;
+
+function updateAccuracy() {
+  if (!accuracyEl || !resAccuracy) return;
+  const acc = stats.shots === 0 ? 100 : Math.round((stats.hit / stats.shots) * 100);
+  accuracyEl.textContent = `${acc}%`;
+  resAccuracy.textContent = `${acc}%`;
+}
+
+export let stats = { spawned: 0, hit: 0, shots: 0 };
+
+/* ===================== CONTROLS ===================== */
+let yaw = 0, pitch = 0;
 const sensitivity = 0.002;
 let isLocked = false;
 
 window.addEventListener("resize", () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
   camera.updateProjectionMatrix();
 });
 
-/* TEXTURES & ASSETS */
-const loader = new THREE.TextureLoader();
-const albedo = loader.load("./img/metal-roof-unity/metal-roof_albedo.png");
-const rough = loader.load("./img/metal-roof-unity/metal-roof_ao.png");
-const normal = loader.load("./img/metal-roof-unity/metal-roof_normal-ogl.png");
-const height = loader.load("./img/metal-roof-unity/metal-roof_height.png");
-albedo.colorSpace = THREE.SRGBColorSpace;
+document.addEventListener("mousemove", e => {
+  if (!gameStarted || !isLocked || gamePaused) return;
+  yaw -= e.movementX * sensitivity;
+  pitch -= e.movementY * sensitivity;
+  pitch = THREE.MathUtils.clamp(pitch, -Math.PI/2+0.1, Math.PI/2-0.1);
+  camera.rotation.set(pitch, yaw, 0, "YXZ");
+});
 
-/* TARGET GROUP */
+document.addEventListener("pointerlockchange", () => {
+  isLocked = document.pointerLockElement === canvas;
+  if (!isLocked && gameStarted && !gamePaused && window.onGamePause) window.onGamePause();
+});
+
+window.setGamePaused = v => gamePaused = v;
+
+/* ===================== TEXTURE ===================== */
+const loader = new THREE.TextureLoader();
+const normal = loader.load("./img/metal-roof-unity/metal-roof_normal-ogl.png");
+const rough = loader.load("./img/metal-roof-unity/metal-roof_ao.png");
+const height = loader.load("./img/metal-roof-unity/metal-roof_height.png");
+
+/* ===================== TARGET ===================== */
 export const targetGroup = new THREE.Group();
 scene.add(targetGroup);
 
-const geometryVisual = new THREE.SphereGeometry(0.1, 64, 64);
-const materialVisual = new THREE.MeshStandardMaterial({
-  color: 0x00ffff,
-  normalMap: normal,
-  roughnessMap: rough,
-  aoMap: rough,
-  displacementMap: height,
-  roughness: 0.5,
-  metalness: 0.1,
-});
-const sphereVisual = new THREE.Mesh(geometryVisual, materialVisual);
-targetGroup.add(sphereVisual);
+const sphereVisual = new THREE.Mesh(
+  new THREE.SphereGeometry(0.1, 64, 64),
+  new THREE.MeshStandardMaterial({
+    color: 0x00ffff,
+    normalMap: normal,
+    roughnessMap: rough,
+    aoMap: rough,
+    displacementMap: height,
+    roughness: 0.5,
+    metalness: 0.1
+  })
+);
 
 const geometryHitbox = new THREE.SphereGeometry(0.25, 16, 16);
-const materialHitbox = new THREE.MeshBasicMaterial({
-  color: 0xff0000,
-  transparent: true,
-  opacity: 0,
-  depthWrite: false
-});
-const sphereHitbox = new THREE.Mesh(geometryHitbox, materialHitbox);
-targetGroup.add(sphereHitbox);
-// efek meledak saat kena tembak
-function playHitExplosion(onComplete) {
-  const particleCount = 16;
-  const particles = [];
+const sphereHitbox = new THREE.Mesh(
+  geometryHitbox,
+  new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+);
 
+targetGroup.add(sphereVisual, sphereHitbox);
+targetGroup.visible = false;
+
+/* ===================== LIGHT ===================== */
+scene.add(new THREE.AmbientLight(0xffffff, 1));
+const light = new THREE.DirectionalLight(0xffffff, 5);
+light.position.set(2, 5, 5);
+scene.add(light);
+
+/* ===================== AIM ===================== */
+const AIM_CONE_ANGLE = THREE.MathUtils.degToRad(3.5);
+const AIM_MAX_DISTANCE = 15;
+const raycaster = new THREE.Raycaster();
+
+/* ===================== START GAME ===================== */
+window.startGame = (mode, customTime = 30, difficulty = "normal") => {
+  INITIAL_TIME = customTime;
+  currentMode = mode;
+  currentDifficulty = difficulty;
+
+  gameStarted = true;
+  gamePaused = false;
+  score = 0;
+  combo = 0;
+  comboEl.style.display = "none";
+
+  timeLeft = INITIAL_TIME;
+  stats = { spawned: 0, hit: 0, shots: 0 };
+
+  scoreEl.textContent = score;
+  timeEl.textContent = timeLeft;
+  updateAccuracy(); 
+
+  yaw = pitch = 0;
+  camera.rotation.set(0, 0, 0);
+  canvas.requestPointerLock();
+
+  scoreboardContainer.style.display = "block";
+  resultOverlay.style.display = "none";
+  crosshair.style.display = "block";
+  targetGroup.visible = true;
+
+  const diff = DIFFICULTY_CONFIG[currentDifficulty];
+  sphereVisual.scale.setScalar(diff.scale);
+  sphereHitbox.scale.setScalar(diff.scale);
+
+  (mode === "spidershot") ? SpiderLogic.init() : MotionLogic.init();
+  spawnTime = performance.now();
+
+  clearInterval(timer);
+  timer = setInterval(() => {
+    if (!gamePaused && --timeLeft <= 0) endGame();
+    timeEl.textContent = timeLeft;
+  }, 1000);
+};
+
+/* ===================== END GAME ===================== */
+function endGame() {
+  gameStarted = false;
+  combo = 0;
+  comboEl.style.display = "none";
+
+  targetGroup.visible = false;
+  clearInterval(timer);
+  document.exitPointerLock();
+
+  scoreboardContainer.style.display = "none";
+  crosshair.style.display = "none";
+
+  const miss = Math.max(stats.shots - stats.hit, 0);
+  resTime.textContent = `${INITIAL_TIME}s`;
+  resHit.textContent = stats.hit;
+  resMiss.textContent = miss;
+  resScore.textContent = score;
+  updateAccuracy();
+
+  resultOverlay.style.display = "flex";
+}
+
+btnResultBack.onclick = () => {
+  resultOverlay.style.display = "none";
+  const menu = document.getElementById("menu-overlay");
+  if (menu) { menu.style.opacity = 1; menu.style.pointerEvents = "auto"; }
+};
+
+/* ===================== HIT EXPLOSION ===================== */
+function playHitExplosion(onComplete) {
+  const particles = [];
   const origin = new THREE.Vector3();
   sphereVisual.getWorldPosition(origin);
 
-  for (let i = 0; i < particleCount; i++) {
-    const size = Math.random() * 0.04 + 0.02;
-
-    const geo = new THREE.SphereGeometry(size, 6, 6);
-
+  for (let i = 0; i < 16; i++) {
+    const geo = new THREE.SphereGeometry(Math.random() * 0.04 + 0.02, 6, 6);
     const mat = new THREE.MeshBasicMaterial({
       color: Math.random() > 0.5 ? 0xffaa00 : 0x888888,
       transparent: true,
@@ -117,8 +235,7 @@ function playHitExplosion(onComplete) {
 
     const p = new THREE.Mesh(geo, mat);
     p.position.copy(origin);
-
-    p.userData.velocity = new THREE.Vector3(
+    p.userData.vel = new THREE.Vector3(
       (Math.random() - 0.5) * 0.25,
       Math.random() * 0.25,
       (Math.random() - 0.5) * 0.25
@@ -129,156 +246,26 @@ function playHitExplosion(onComplete) {
   }
 
   let life = 0;
-  const maxLife = 25;
-
-  function animate() {
+  (function animate() {
     life++;
-
     particles.forEach(p => {
-      p.position.add(p.userData.velocity);
+      p.position.add(p.userData.vel);
       p.material.opacity -= 0.04;
       p.scale.multiplyScalar(0.95);
     });
 
-    if (life < maxLife) {
-      requestAnimationFrame(animate);
-    } else {
+    if (life < 25) requestAnimationFrame(animate);
+    else {
       particles.forEach(p => scene.remove(p));
       if (onComplete) onComplete();
     }
-  }
-
-  animate();
+  })();
 }
 
-
-targetGroup.visible = false;
-
-/* LIGHT */
-scene.add(new THREE.AmbientLight(0xffffff, 1));
-const light = new THREE.DirectionalLight(0xffffff, 5);
-light.position.set(2, 5, 5);
-scene.add(light);
-
-/* GAME STATE */
-let gameStarted = false;
-let gamePaused = false;
-let currentMode = "";
-let score = 0;
-let timeLeft = 30;
-let INITIAL_TIME = 30;
-let timer = null;
-let spawnTime = 0;
-
-export let stats = { spawned: 0, hit: 0, shots: 0 };
-
-/* FPS MOUSE LOOK */
-document.addEventListener("mousemove", (event) => {
-  if (!gameStarted || !isLocked || gamePaused) return;
-  yaw -= event.movementX * sensitivity;
-  pitch -= event.movementY * sensitivity;
-  const maxPitch = Math.PI / 2 - 0.1;
-  pitch = Math.max(-maxPitch, Math.min(maxPitch, pitch));
-  camera.rotation.set(pitch, yaw, 0, "YXZ");
-});
-
-document.addEventListener("pointerlockchange", () => {
-  isLocked = document.pointerLockElement === canvas;
-  if (!isLocked && gameStarted && !gamePaused) {
-    if (window.onGamePause) window.onGamePause();
-  }
-});
-
-window.setGamePaused = (status) => {
-  gamePaused = status;
-};
-
-/* OFF-CENTER SHOOTING CONFIG */
-const AIM_CONE_ANGLE = THREE.MathUtils.degToRad(3.5);
-const AIM_MAX_DISTANCE = 15;
-
-/* START GAME */
-window.startGame = (mode, customTime = 30,difficulty = "normal") => {
-  INITIAL_TIME = customTime;
-  currentMode = mode;
-  gameStarted = true;
-  gamePaused = false;
-  score = 0;
-  timeLeft = INITIAL_TIME;
-  stats = { spawned: 0, hit: 0, shots: 0 };
-  currentDifficulty = difficulty;
-
-  scoreEl.textContent = score;
-  timeEl.textContent = timeLeft;
-
-  yaw = 0;
-  pitch = 0;
-  camera.rotation.set(0, 0, 0);
-  canvas.requestPointerLock();
-
-  scoreboardContainer.style.display = "block";
-  resultOverlay.style.display = "none";
-  crosshair.style.display = "block";
-  targetGroup.visible = true;
-
-  /* APPLY DIFFICULTY SCALE (TAMBAHAN) */
-  const diff = DIFFICULTY_CONFIG[currentDifficulty];
-  sphereVisual.scale.setScalar(diff.scale);
-  sphereHitbox.scale.setScalar(diff.scale);
-
-  if (mode === "spidershot") SpiderLogic.init();
-  else if (mode === "motionshot") MotionLogic.init();
-
-  spawnTime = performance.now();
-
-  if (timer) clearInterval(timer);
-  timer = setInterval(() => {
-    if (!gamePaused) {
-      timeLeft--;
-      timeEl.textContent = timeLeft;
-      if (timeLeft <= 0) endGame();
-    }
-  }, 1000);
-};
-
-function endGame() {
-  gameStarted = false;
-  targetGroup.visible = false;
-  clearInterval(timer);
-  document.exitPointerLock();
-
-  crosshair.style.display = "none";
-  scoreboardContainer.style.display = "none";
-
-  const misses = stats.shots - stats.hit;
-  const finalMiss = misses < 0 ? 0 : misses;
-
-  resTime.textContent = `${INITIAL_TIME}s`;
-  resSpawn.textContent = stats.spawned;
-  resHit.textContent = stats.hit;
-  resMiss.textContent = finalMiss;
-  resScore.textContent = score;
-
-  resultOverlay.style.display = "flex";
-}
-
-btnResultBack.addEventListener("click", () => {
-  resultOverlay.style.display = "none";
-  const menuOverlay = document.getElementById("menu-overlay");
-  if (menuOverlay) {
-    menuOverlay.style.opacity = "1";
-    menuOverlay.style.pointerEvents = "auto";
-  }
-});
-
-/* SHOOTING LOGIC */
-const raycaster = new THREE.Raycaster();
-
+/* ===================== SHOOT ===================== */
 canvas.addEventListener("mousedown", () => {
   if (!gameStarted || !isLocked || gamePaused) return;
-
   stats.shots++;
-  if (!targetGroup.visible) return;
 
   const camDir = new THREE.Vector3();
   camera.getWorldDirection(camDir);
@@ -290,87 +277,92 @@ canvas.addEventListener("mousedown", () => {
   const distance = toTarget.length();
   toTarget.normalize();
 
-  let shootDir = camDir.clone();
-  const angle = camDir.angleTo(toTarget);
-
-  if (angle <= AIM_CONE_ANGLE && distance <= AIM_MAX_DISTANCE) {
-    shootDir = toTarget;
-  }
+  let shootDir = camDir.angleTo(toTarget) <= AIM_CONE_ANGLE && distance <= AIM_MAX_DISTANCE
+    ? toTarget
+    : camDir;
 
   raycaster.set(camera.position, shootDir);
   const hit = raycaster.intersectObject(sphereHitbox);
 
   if (hit.length) {
     stats.hit++;
+    combo++;
+
     playHitExplosion();
+
     const rt = performance.now() - spawnTime;
+    const base = THREE.MathUtils.clamp(
+      100 - ((rt - 400) / 1600) * 90,
+      10, 100
+    );
 
-    const maxScore = 100;
-    const minScore = 10;
-    const perfectTime = 400;
-    const slowTime = 2000;
-    let point = 0;
-
-    if (rt <= perfectTime) point = maxScore;
-    else if (rt >= slowTime) point = minScore;
-    else {
-      const percentage = 1 - (rt - perfectTime) / (slowTime - perfectTime);
-      point = Math.round(minScore + percentage * (maxScore - minScore));
-    }
-
-    const hitPoint = hit[0].point.clone();
     const center = new THREE.Vector3();
     sphereHitbox.getWorldPosition(center);
+    const accRatio = Math.min(hit[0].point.distanceTo(center) / geometryHitbox.parameters.radius, 1);
+    const accMul = THREE.MathUtils.lerp(1.3, 0.7, accRatio);
 
-    const distanceFromCenter = hitPoint.distanceTo(center);
-    const hitRadius = geometryHitbox.parameters.radius;
-    const accuracyRatio = Math.min(distanceFromCenter / hitRadius, 1);
-    const accuracyMultiplier = THREE.MathUtils.lerp(1.3, 0.7, accuracyRatio);
+    const diffMul = DIFFICULTY_CONFIG[currentDifficulty].scoreMultiplier;
 
-    /* DIFFICULTY SCORE MULTIPLIER (TAMBAHAN) */
-    const diffMultiplier = DIFFICULTY_CONFIG[currentDifficulty].scoreMultiplier;
+    let comboMul = 1;
+    if (combo >= 10) comboMul = 1.5;
+    else if (combo >= 5) comboMul = 1.25;
+    else if (combo >= 2) comboMul = 1.1;
 
-    const finalPoint = Math.round(point * accuracyMultiplier * diffMultiplier);
-
-    score += finalPoint;
+    score += Math.round(base * accMul * diffMul * comboMul);
     scoreEl.textContent = score;
 
-    // targetGroup.visible = false;
+    comboEl.textContent = `COMBO x${combo}`;
+    comboEl.style.display = "block";
 
-    const respawnCallback = () => {
+    updateAccuracy();
+
+    const respawn = () => {
       if (!gameStarted) return;
       spawnTime = performance.now();
       targetGroup.visible = true;
-      stats.spawned++;
     };
 
-    if (currentMode === "spidershot") SpiderLogic.onHit(respawnCallback);
-    else if (currentMode === "motionshot") MotionLogic.onHit(respawnCallback);
-  }
-  else {
-    let missPenalty = 20;
+    currentMode === "spidershot"
+      ? SpiderLogic.onHit(respawn)
+      : MotionLogic.onHit(respawn);
 
-    if (currentDifficulty === "hard") missPenalty = 40;
-    else if (currentDifficulty === "easy") missPenalty = 10;
+  } else {
+    combo = 0;
+    comboEl.style.display = "none";
 
-    score -= missPenalty;
-    if (score < 0) score = 0;
+    score = Math.max(0, score - DIFFICULTY_CONFIG[currentDifficulty].missPenalty);
     scoreEl.textContent = score;
+
+    updateAccuracy();
   }
+  
+  if (accuracyBar && accuracyEl) {
+  const acc = Math.round((stats.hit / Math.max(stats.shots, 1)) * 100);
+
+  accuracyEl.textContent = `${acc}%`;
+  accuracyBar.style.width = `${acc}%`;
+
+  if (acc >= 80) {
+    accuracyBar.style.background = "linear-gradient(90deg, #00ff99, #00ffaa)";
+    accuracyEl.style.color = "#00ffaa";
+  } else if (acc >= 50) {
+    accuracyBar.style.background = "linear-gradient(90deg, #ffd000, #ffaa00)";
+    accuracyEl.style.color = "#ffaa00";
+  } else {
+    accuracyBar.style.background = "linear-gradient(90deg, #ff5555, #ff2222)";
+    accuracyEl.style.color = "#ff5555";
+  }
+}
+
 });
 
-/* ANIMATE LOOP */
+/* ===================== LOOP ===================== */
 function animate() {
   requestAnimationFrame(animate);
   if (gamePaused) return;
 
   sphereVisual.rotation.y += 0.004;
-
-  if (gameStarted && currentMode === "motionshot") {
-    MotionLogic.update();
-  }
-
+  if (gameStarted && currentMode === "motionshot") MotionLogic.WEQ();
   renderer.render(scene, camera);
 }
-
 animate();

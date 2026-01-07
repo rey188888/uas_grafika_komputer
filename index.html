@@ -19,6 +19,16 @@
         <span class="hud-label">PTS</span>
         <span id="score">0</span>
       </div>
+
+      <div class="hud-section accuracy-section">
+        <span class="hud-label">ACC</span>
+
+        <div class="acc-bar">
+          <div class="acc-fill" id="accuracy-bar"></div>
+        </div>
+
+        <span class="acc-text" id="accuracy">100%</span>
+      </div>
       <div class="hud-section timer-section">
         <div class="diamond-shape"></div>
         <div class="timer-content">
@@ -36,10 +46,6 @@
             <span class="stat-value" id="res-time">30s</span>
           </div>
           <div class="stat-item">
-            <span class="stat-label">Targets Spawned</span>
-            <span class="stat-value" id="res-spawn">0</span>
-          </div>
-          <div class="stat-item">
             <span class="stat-label">Targets Hit</span>
             <span class="stat-value" id="res-hit">0</span>
           </div>
@@ -47,6 +53,11 @@
             <span class="stat-label">Shots Missed</span>
             <span class="stat-value" id="res-miss">0</span>
           </div>
+          <div class="stat-item">
+            <span class="stat-label">Accuracy</span>
+            <span class="stat-value" id="res-accuracy">100%</span>
+          </div>
+
           <div class="stat-item full-width">
             <span class="stat-label">Final Score</span>
             <span class="stat-value highlight" id="res-score">0</span>
@@ -127,7 +138,6 @@
       let activeMode = null;
       let selectedTime = 30;
       let selectedDifficulty = "normal";
-      
 
       btnPlay.addEventListener("click", () => {
         playModes.classList.add("visible");
@@ -154,7 +164,6 @@
       difficultySelect.addEventListener("change", () => {
         selectedDifficulty = difficultySelect.value;
       });
-
 
       function startCountdown(onFinish) {
         let t = 3;
