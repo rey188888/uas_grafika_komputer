@@ -70,35 +70,71 @@
     <div id="menu-overlay">
       <div class="menu-card">
         <h1>Aim Trainer</h1>
+        
+        <!-- MAIN MENU -->
         <div id="main-menu">
           <button id="btn-play" class="btn btn-primary">Play</button>
-
-          <!-- DIFFICULTY PRESET -->
-          <div id="difficulty-presets" style="margin:8px 0; display:none;">
-            <select id="difficulty-select" class="btn btn-secondary" style="width:100%;">
-              <option value="easy">Easy</option>
-              <option value="normal" selected>Normal</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
-
-          <!-- DROPDOWN TIME -->
-          <div id="time-presets" style="margin:8px 0; display:none;">
-            <select id="time-select" class="btn btn-secondary" style="width:100%;">
-              <option value="30" selected>30 Seconds</option>
-              <option value="60">60 Seconds</option>
-              <option value="90">90 Seconds</option>
-            </select>
-          </div>
-
-          <div id="play-modes">
-            <button class="btn mode-btn" onclick="selectMode('spidershot')">Spidershot</button>
-            <button class="btn mode-btn" onclick="selectMode('motionshot')">Motionshot</button>
-          </div>
-
-          <button id="btn-back" class="btn btn-secondary" style="display:none;">Back</button>
           <button id="btn-practice" class="btn btn-secondary">Practice</button>
         </div>
+
+        <!-- MODE SELECTION -->
+        <div id="mode-selection" style="display: none;">
+          <h3>Select Mode</h3>
+          <button class="btn mode-btn" onclick="openConfig('spidershot')">Spidershot</button>
+          <button class="btn mode-btn" onclick="openConfig('motionshot')">Motionshot</button>
+          <button id="btn-back-modes" class="btn btn-secondary">Back</button>
+        </div>
+
+        <!-- SPIDERSHOT CONFIG -->
+        <div id="spidershot-config" style="display: none;">
+          <h3>Spidershot Setup</h3>
+          <div id="spider-placeholders"></div>
+          <button id="btn-start-spider" class="btn btn-primary">Start Game</button>
+          <button id="btn-back-spider" class="btn btn-secondary">Back</button>
+        </div>
+
+        <!-- MOTIONSHOT CONFIG -->
+        <div id="motion-config" style="display: none;">
+          <h3>Motion Setup</h3>
+          <div id="motion-placeholders"></div>
+          
+          <div class="setting-item" style="margin-bottom: 12px;">
+            <label>Speed: <span id="val-speed">1.0</span></label>
+            <input type="range" id="range-speed" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 100%;">
+          </div>
+
+          <div class="setting-item" style="margin-bottom: 20px;">
+            <label>Distance: <span id="val-dist">15</span></label>
+            <input type="range" id="range-dist" min="10" max="25" step="1" value="15" style="width: 100%;">
+          </div>
+
+          <button id="btn-start-motion" class="btn btn-primary">Start Game</button>
+          <button id="btn-back-motion" class="btn btn-secondary">Back</button>
+        </div>
+
+        <!-- REUSABLE COMPONENTS (Hidden, moved via JS) -->
+        <div id="shared-components" style="display:none;">
+           <!-- TIME SELECTOR -->
+           <div id="time-presets" style="margin:8px 0;">
+             <label style="font-size:0.9rem; color:#ccc;">Duration</label>
+             <select id="time-select" class="btn btn-secondary" style="width:100%;">
+               <option value="30" selected>30 Seconds</option>
+               <option value="60">60 Seconds</option>
+               <option value="90">90 Seconds</option>
+             </select>
+           </div>
+           
+           <!-- DIFFICULTY SELECTOR -->
+           <div id="difficulty-presets" style="margin:8px 0;">
+             <label style="font-size:0.9rem; color:#ccc;">Difficulty</label>
+             <select id="difficulty-select" class="btn btn-secondary" style="width:100%;">
+               <option value="easy">Easy</option>
+               <option value="normal" selected>Normal</option>
+               <option value="hard">Hard</option>
+             </select>
+           </div>
+        </div>
+
       </div>
     </div>
 
@@ -111,66 +147,155 @@
       </div>
     </div>
 
+    <div id="click-continue-overlay" style="display: none;">
+      <div class="continue-message">Tap / Click Screen to Continue</div>
+    </div>
+
     <div id="countdown">3</div>
 
     <script type="module" src="ball.js"></script>
     <script type="module" src="background.js"></script>
 
     <script>
+      // Navigation Elements
+      const mainMenu = document.getElementById("main-menu");
+      const modeSelection = document.getElementById("mode-selection");
+      const spiderConfig = document.getElementById("spidershot-config");
+      const motionConfig = document.getElementById("motion-config");
+      
+      const spiderPlaceholders = document.getElementById("spider-placeholders");
+      const motionPlaceholders = document.getElementById("motion-placeholders");
+      const sharedComponents = document.getElementById("shared-components");
+
+      const timePresets = document.getElementById("time-presets");
+      const difficultyPresets = document.getElementById("difficulty-presets");
+
+      // Buttons
       const btnPlay = document.getElementById("btn-play");
       const btnPractice = document.getElementById("btn-practice");
-      const btnBack = document.getElementById("btn-back");
-      const playModes = document.getElementById("play-modes");
-      const timePresets = document.getElementById("time-presets");
+      const btnBackModes = document.getElementById("btn-back-modes");
+      
+      const btnStartSpider = document.getElementById("btn-start-spider");
+      const btnBackSpider = document.getElementById("btn-back-spider");
+      
+      const btnStartMotion = document.getElementById("btn-start-motion");
+      const btnBackMotion = document.getElementById("btn-back-motion");
+
+      // Inputs
       const timeSelect = document.getElementById("time-select");
-      const difficultyPresets = document.getElementById("difficulty-presets");
       const difficultySelect = document.getElementById("difficulty-select");
+      const rangeSpeed = document.getElementById("range-speed");
+      const rangeDist = document.getElementById("range-dist");
+      const valSpeed = document.getElementById("val-speed");
+      const valDist = document.getElementById("val-dist");
+
+      // Overlays
       const countdownEl = document.getElementById("countdown");
       const menuOverlay = document.getElementById("menu-overlay");
-
       const pauseOverlay = document.getElementById("pause-overlay");
       const btnResume = document.getElementById("btn-resume");
       const btnRestart = document.getElementById("btn-restart");
       const btnExit = document.getElementById("btn-exit");
 
+      // State
       let isPaused = false;
       let isGameActive = false;
       let activeMode = null;
       let selectedTime = 30;
       let selectedDifficulty = "normal";
+      let motionParams = { speed: 1.0, distance: 15 };
 
-      btnPlay.addEventListener("click", () => {
-        playModes.classList.add("visible");
-        timePresets.style.display = "block";
-        difficultyPresets.style.display = "block";
-        btnPlay.style.display = "none";
-        btnPractice.style.display = "none";
-        btnBack.style.display = "block";
+      /* ================= VIEW NAVIGATION ================= */
+      function showView(viewName) {
+        mainMenu.style.display = "none";
+        modeSelection.style.display = "none";
+        spiderConfig.style.display = "none";
+        motionConfig.style.display = "none";
+
+        if (viewName === 'main') mainMenu.style.display = "block";
+        else if (viewName === 'modes') modeSelection.style.display = "block";
+        else if (viewName === 'spider') spiderConfig.style.display = "block";
+        else if (viewName === 'motion') motionConfig.style.display = "block";
+      }
+
+      btnPractice.addEventListener("click", () => {
+        // Hide standard menu
+        mainMenu.style.display = "none";
+        
+        // Practice has no config for now, just start
+        startCountdown(() => {
+           isGameActive = true;
+           window.startGame("practice", 9999, "normal"); // Infinite time essentially
+           document.getElementById("time").textContent = "∞"; // Show infinite symbol
+        });
       });
 
-      btnBack.addEventListener("click", () => {
-        playModes.classList.remove("visible");
-        timePresets.style.display = "none";
-        difficultyPresets.style.display = "none";
-        btnPlay.style.display = "block";
-        btnPractice.style.display = "block";
-        btnBack.style.display = "none";
+      // 1. Main Menu -> Mode Selection
+      btnPlay.addEventListener("click", () => showView('modes'));
+      btnBackModes.addEventListener("click", () => showView('main'));
+
+      // 2. Mode Selection -> Config
+      window.openConfig = (mode) => {
+         activeMode = mode;
+         if (mode === 'spidershot') {
+            // Move shared components to Spider view
+            spiderPlaceholders.appendChild(timePresets);
+            spiderPlaceholders.appendChild(difficultyPresets);
+            showView('spider');
+         } else if (mode === 'motionshot') {
+            // Move shared components to Motion view (Only Time)
+            motionPlaceholders.appendChild(timePresets);
+            // Put difficulty back in storage if it was here
+            if (difficultyPresets.parentNode !== sharedComponents) {
+               sharedComponents.appendChild(difficultyPresets);
+            }
+            showView('motion');
+         }
+      };
+
+      // 3. Config -> Back
+      btnBackSpider.addEventListener("click", () => showView('modes'));
+      btnBackMotion.addEventListener("click", () => showView('modes'));
+
+      /* ================= GAME LOGIC ================= */
+      
+      // Update State on Change
+      timeSelect.addEventListener("change", () => selectedTime = parseInt(timeSelect.value));
+      difficultySelect.addEventListener("change", () => selectedDifficulty = difficultySelect.value);
+      
+      rangeSpeed.addEventListener("input", (e) => {
+        motionParams.speed = parseFloat(e.target.value);
+        valSpeed.textContent = motionParams.speed.toFixed(1);
+      });
+      rangeDist.addEventListener("input", (e) => {
+        motionParams.distance = parseInt(e.target.value);
+        valDist.textContent = motionParams.distance;
       });
 
-      timeSelect.addEventListener("change", () => {
-        selectedTime = parseInt(timeSelect.value);
-      });
+      // Start Handlers
+      function handleStart() {
+        let config = "normal";
+        if (activeMode === 'spidershot') {
+           config = selectedDifficulty;
+        } else {
+           config = motionParams; // Object
+        }
 
-      difficultySelect.addEventListener("change", () => {
-        selectedDifficulty = difficultySelect.value;
-      });
+        startCountdown(() => {
+          isGameActive = true;
+          window.startGame(activeMode, selectedTime, config);
+        });
+      }
 
+      btnStartSpider.addEventListener("click", handleStart);
+      btnStartMotion.addEventListener("click", handleStart);
+
+      /* ================= UTILS ================= */
       function startCountdown(onFinish) {
         let t = 3;
         countdownEl.textContent = t;
         countdownEl.style.display = "block";
-        menuOverlay.style.opacity = "0";
-        menuOverlay.style.pointerEvents = "none";
+        menuOverlay.style.display = "none";
 
         const i = setInterval(() => {
           t--;
@@ -183,36 +308,8 @@
         }, 1000);
       }
 
-      window.selectMode = (mode) => {
-        activeMode = mode;
-        startCountdown(() => {
-          isGameActive = true;
-          window.startGame(mode, selectedTime, selectedDifficulty);
-        });
-      };
-
-      window.onGamePause = () => {
-        if (isGameActive && !isPaused) {
-          isPaused = true;
-          pauseOverlay.style.display = "flex";
-          window.setGamePaused(true);
-        }
-      };
-
-      btnResume.addEventListener("click", () => {
-        isPaused = false;
-        pauseOverlay.style.display = "none";
-        document.getElementById("webgl").requestPointerLock();
-        window.setGamePaused(false);
-      });
-
-      btnRestart.addEventListener("click", () => {
-        isPaused = false;
-        pauseOverlay.style.display = "none";
-        startCountdown(() => window.startGame(activeMode, selectedTime, selectedDifficulty));
-      });
-
-      btnExit.addEventListener("click", () => location.reload());
+      // Init
+      showView('main');
     </script>
   </body>
 </html>
