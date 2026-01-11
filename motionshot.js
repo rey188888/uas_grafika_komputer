@@ -18,27 +18,20 @@ function pickRandomAxis() {
   currentAxis = types[Math.floor(Math.random() * types.length)];
 }
 
-const SPEED_MAP = {
-  easy: 0.5,
-  normal: 1.0,
-  hard: 1.5
-};
+
 
 /* ===================== DIPANGGIL SAAT AWAL MULAI ===================== */
 export function init(configOrDifficulty = "normal") {
   time = -Math.PI / 2; 
   
   // Default values
+  // Custom Config
   let speedVal = 1.0;
-  let distVal = 13; // default equiv to -3 Z
+  let distVal = 13;
 
   if (typeof configOrDifficulty === 'object') {
-     // Custom Config
      speedVal = configOrDifficulty.speed;
      distVal = configOrDifficulty.distance;
-  } else {
-     // Legacy String
-     speedVal = SPEED_MAP[configOrDifficulty] || 1.0;
   }
 
   speed = speedVal;

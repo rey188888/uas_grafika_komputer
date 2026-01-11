@@ -116,7 +116,6 @@ targetGroup.visible = false;
 scene.add(targetGroup);
 
 /* ===================== GAME FUNCTIONS ===================== */
-window.setDifficulty = (d) => currentDifficulty = d;
 
 window.startGame = (mode, customTime = 30, difficultyOrConfig = "normal") => {
   INITIAL_TIME = customTime;
@@ -217,11 +216,6 @@ function endGame() {
 
   resultOverlay.style.display = "flex";
 }
-
-window.onGamePause = (isPaused) => {
-   // UI handling is in index.html, this is just for internal state if needed
-};
-window.setGamePaused = (v) => gamePaused = v;
 
 function updateAccuracy() {
   if (!accuracyEl || !resAccuracy) return;
